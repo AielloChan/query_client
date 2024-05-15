@@ -3,7 +3,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('A group of tests', () {
-    final queryClient = QueryClient<bool>(({bool? data, List<bool>? dataList}) async {
+    final queryClient = QueryClient<bool>(({bool data, List<bool> dataList}) async {
       await Future.delayed(Duration(seconds: 1));
       return true;
     });

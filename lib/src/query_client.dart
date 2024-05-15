@@ -64,4 +64,7 @@ abstract class QueryClientAbstract<T> {
 
   /// 增量请求
   Future<T> Function() get loadMore;
+
+  /// 修改本地数据
+  Future<R> mutate<R>(Future<R> Function({T data, List<T> dataList}) fn);
 }

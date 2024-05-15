@@ -65,11 +65,11 @@ class QueryClient<T> implements QueryClientAbstract {
   get isValidating => _isValidating;
 
   @override
-  void Function() get clean => () => _clean();
+  void Function() get clean => _clean;
   @override
-  void Function() get reset => () => _reset();
+  void Function() get reset => _reset;
   @override
-  Future<T> Function() get request => () => _request();
+  Future<T> Function() get request => _request;
   @override
   Future<T> Function() get loadMore => () => _request(append: true);
 
@@ -159,5 +159,14 @@ class QueryClient<T> implements QueryClientAbstract {
   void _clean() {
     _error = null;
     _dataList = [];
+  }
+
+  @override
+  Future<R> mutate<R>(Future<R> Function({T data, List<T> dataList}) fn) async {
+    final future = fn(data: data, dataList: dataList);
+    _triggerUpdate();
+    final result = await future;
+    _triggerUpdate();
+    return result;
   }
 }
