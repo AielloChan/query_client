@@ -2,6 +2,7 @@
 import 'dart:async';
 
 import 'package:query_client/query_client.dart';
+import 'package:query_client/src/uniqId.dart';
 
 /// 单一请求客户端
 class QueryClient<T> implements QueryClientAbstract {
@@ -26,6 +27,8 @@ class QueryClient<T> implements QueryClientAbstract {
 
   /// 回调
   void Function() _onUpdate;
+
+  String _requestKey;
 
   QueryClient(
     this._fn, {
@@ -71,7 +74,7 @@ class QueryClient<T> implements QueryClientAbstract {
   @override
   Future<T> Function() get request => _request;
   @override
-  Future<T> Function() get loadMore => () => _request(append: true);
+  Future<T> Function() get loadMore => () => _request(isAppend: true);
 
   Completer<T> _createCompleter() {
     Completer<T> completer = Completer();
@@ -86,7 +89,7 @@ class QueryClient<T> implements QueryClientAbstract {
   }
 
   Future<T> _request({
-    bool append = false,
+    bool isAppend = false,
   }) {
     if (_isLoading || _isValidating) {
       /// 如果当前已经有请求
@@ -109,31 +112,9 @@ class QueryClient<T> implements QueryClientAbstract {
       _isValidating = true;
     }
 
-    void onSuccess(T value) {
-      _error = null;
-      if (append) {
-        _dataList.add(value);
-      } else {
-        _dataList = [value];
-      }
-      _isLoading = false;
-      _isValidating = false;
-      _completer.complete(value);
-
-      _triggerUpdate();
-    }
-
-    void onError(dynamic error) {
-      _error = error;
-      if (!append) {
-        _dataList = [];
-      }
-      _isLoading = false;
-      _isValidating = false;
-      _completer.completeError(error);
-
-      _triggerUpdate();
-    }
+    /// 用做请求唯一判断
+    final requestKey = generateUniqueId();
+    _requestKey = requestKey;
 
     /// 同时捕获同步错误和异步错误
     try {
@@ -141,18 +122,58 @@ class QueryClient<T> implements QueryClientAbstract {
       _triggerUpdate();
 
       Future<T> response;
-      if (append) {
+      if (isAppend) {
         response = _fn(data: data, dataList: _dataList);
       } else {
         response = _fn(data: null, dataList: []);
       }
 
-      response.then(onSuccess).catchError(onError);
+      response
+          .then((value) => _handleSuccess(requestKey, value, isAppend))
+          .catchError((error) => _handleError(requestKey, error, isAppend));
     } catch (error) {
-      onError(error);
+      _handleError(requestKey, error, isAppend);
     }
 
     return future;
+  }
+
+  /// 处理请求成功逻辑
+  void _handleSuccess(String requestKey, T value, bool isAppend) {
+    if (_requestKey != requestKey) {
+      // 不是当前要处理的请求
+      return;
+    }
+
+    _error = null;
+    if (isAppend) {
+      _dataList.add(value);
+    } else {
+      _dataList = [value];
+    }
+    _isLoading = false;
+    _isValidating = false;
+    _completer.complete(value);
+
+    _triggerUpdate();
+  }
+
+  /// 处理请求失败逻辑
+  void _handleError(String requestKey, dynamic error, bool isAppend) {
+    if (_requestKey != requestKey) {
+      // 不是当前要处理的请求
+      return;
+    }
+
+    _error = error;
+    if (!isAppend) {
+      _dataList = [];
+    }
+    _isLoading = false;
+    _isValidating = false;
+    _completer.completeError(error);
+
+    _triggerUpdate();
   }
 
   void _reset() {
