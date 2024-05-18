@@ -139,10 +139,15 @@ class QueryClient<T> implements QueryClientAbstract {
     try {
       /// 在发出请求前，触发界面更新
       _triggerUpdate();
-      _fn(
-        data: data,
-        dataList: _dataList,
-      ).then(onSuccess).catchError(onError);
+
+      Future<T> response;
+      if (append) {
+        response = _fn(data: data, dataList: _dataList);
+      } else {
+        response = _fn(data: null, dataList: []);
+      }
+
+      response.then(onSuccess).catchError(onError);
     } catch (error) {
       onError(error);
     }
