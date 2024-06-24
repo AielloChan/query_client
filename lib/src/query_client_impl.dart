@@ -6,18 +6,16 @@ import 'package:query_client/src/uniqId.dart';
 
 /// 单一请求客户端
 class QueryClient<T> implements QueryClientAbstract {
-  final Future<T> Function({
-    T data,
-    List<T> dataList,
-  }) _fn;
+  final Future<T> Function() _fn;
 
   /// 数据区域
-  List<T> _dataList = [];
+  List<T> _pages = [];
   dynamic _error;
 
   /// 状态区域
-  bool _isLoading = false;
-  bool _isValidating = false;
+  bool _loading = false;
+  bool _validating = false;
+  String _requestKey = null;
 
   /// 配置区域
   bool _swr = true;
@@ -27,8 +25,6 @@ class QueryClient<T> implements QueryClientAbstract {
 
   /// 回调
   void Function() _onUpdate;
-
-  String _requestKey;
 
   QueryClient(
     this._fn, {
@@ -42,7 +38,7 @@ class QueryClient<T> implements QueryClientAbstract {
     _completer = _createCompleter();
 
     if (!manual) {
-      _request();
+      Future.microtask(_request);
     }
   }
 
@@ -50,10 +46,10 @@ class QueryClient<T> implements QueryClientAbstract {
   get error => _error;
 
   @override
-  T get data => _dataList.isNotEmpty ? _dataList.last : null;
+  T get data => _pages.isNotEmpty ? _pages.last : null;
 
   @override
-  List<T> get dataList => _dataList;
+  List<T> get pages => _pages;
 
   @override
   Future<T> get future => _completer.future;
@@ -62,10 +58,10 @@ class QueryClient<T> implements QueryClientAbstract {
   get isError => _error != null;
 
   @override
-  get isLoading => _isLoading;
+  get loading => _loading;
 
   @override
-  get isValidating => _isValidating;
+  get validating => _validating;
 
   @override
   void Function() get clean => _clean;
@@ -91,7 +87,7 @@ class QueryClient<T> implements QueryClientAbstract {
   Future<T> _request({
     bool isAppend = false,
   }) {
-    if (_isLoading || _isValidating) {
+    if (_loading || _validating) {
       /// 如果当前已经有请求
       /// 则直接返回当前的数据
       return future;
@@ -99,17 +95,17 @@ class QueryClient<T> implements QueryClientAbstract {
     _createCompleter();
 
     if (!_swr) {
-      _dataList = [];
+      _pages = [];
     }
 
-    if (_dataList.isEmpty) {
+    if (_pages.isEmpty) {
       /// 没有数据，是全新拉取
-      _isLoading = true;
-      _isValidating = true;
+      _loading = true;
+      _validating = true;
     } else {
       /// 如果有数据，说明是重新拉取
       /// 只需要设置 validating 为 true
-      _isValidating = true;
+      _validating = true;
     }
 
     /// 用做请求唯一判断
@@ -123,9 +119,9 @@ class QueryClient<T> implements QueryClientAbstract {
 
       Future<T> response;
       if (isAppend) {
-        response = _fn(data: data, dataList: _dataList);
+        response = _fn();
       } else {
-        response = _fn(data: null, dataList: []);
+        response = _fn();
       }
 
       response
@@ -147,12 +143,12 @@ class QueryClient<T> implements QueryClientAbstract {
 
     _error = null;
     if (isAppend) {
-      _dataList.add(value);
+      _pages.add(value);
     } else {
-      _dataList = [value];
+      _pages = [value];
     }
-    _isLoading = false;
-    _isValidating = false;
+    _loading = false;
+    _validating = false;
     _completer.complete(value);
 
     _triggerUpdate();
@@ -167,10 +163,10 @@ class QueryClient<T> implements QueryClientAbstract {
 
     _error = error;
     if (!isAppend) {
-      _dataList = [];
+      _pages = [];
     }
-    _isLoading = false;
-    _isValidating = false;
+    _loading = false;
+    _validating = false;
     _completer.completeError(error);
 
     _triggerUpdate();
@@ -178,18 +174,18 @@ class QueryClient<T> implements QueryClientAbstract {
 
   void _reset() {
     _clean();
-    _isLoading = false;
-    _isValidating = false;
+    _loading = false;
+    _validating = false;
   }
 
   void _clean() {
     _error = null;
-    _dataList = [];
+    _pages = [];
   }
 
   @override
-  Future<R> mutate<R>(Future<R> Function({T data, List<T> dataList}) fn) async {
-    final future = fn(data: data, dataList: dataList);
+  Future<R> mutate<R>(Future<R> Function() fn) async {
+    final future = fn();
     _triggerUpdate();
     final result = await future;
     _triggerUpdate();
