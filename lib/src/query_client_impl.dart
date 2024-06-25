@@ -6,7 +6,7 @@ import 'package:query_client/src/uniqId.dart';
 
 /// 单一请求客户端
 class QueryClient<T> implements QueryClientAbstract {
-  final Future<T> Function() _fn;
+  final Future<T> Function(QueryClient<T> client) _fn;
 
   /// 数据区域
   List<T> _pages = [];
@@ -38,7 +38,7 @@ class QueryClient<T> implements QueryClientAbstract {
     _completer = _createCompleter();
 
     if (!manual) {
-      Future.microtask(_request);
+      _request();
     }
   }
 
@@ -119,9 +119,9 @@ class QueryClient<T> implements QueryClientAbstract {
 
       Future<T> response;
       if (isAppend) {
-        response = _fn();
+        response = _fn(this);
       } else {
-        response = _fn();
+        response = _fn(this);
       }
 
       response
@@ -184,8 +184,8 @@ class QueryClient<T> implements QueryClientAbstract {
   }
 
   @override
-  Future<R> mutate<R>(Future<R> Function() fn) async {
-    final future = fn();
+  Future<R> mutate<R>(Future<R> Function(QueryClient<T> client) fn) async {
+    final future = fn(this);
     _triggerUpdate();
     final result = await future;
     _triggerUpdate();

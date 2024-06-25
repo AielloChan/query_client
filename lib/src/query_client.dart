@@ -32,7 +32,7 @@ abstract class QueryClientAbstract<T> {
   bool get validating;
 
   QueryClientAbstract(
-    Future<T> Function()
+    Future<T> Function(QueryClientAbstract<T> client)
 
         /// 请求函数
         fn, {
@@ -63,5 +63,5 @@ abstract class QueryClientAbstract<T> {
   Future<T> Function() get loadMore;
 
   /// 修改本地数据
-  Future<R> mutate<R>(Future<R> Function() fn);
+  Future<R> mutate<R>(Future<R> Function(QueryClientAbstract<T> client) fn);
 }
